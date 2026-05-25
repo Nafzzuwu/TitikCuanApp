@@ -16,6 +16,13 @@
 
 ---
 
+## 👥 Anggota Kelompok 8
+* [cite_start]**Nafariel Dwi Ambariyono** (242410102071) 
+* [cite_start]**Muhammad Rafli Hidayatullah** (242410102082) 
+* [cite_start]**Maulana Irfanhaqi** (242410102042) 
+
+---
+
 ## 🚀 Fitur Utama
 1. [cite_start]**Smart Barcode Checkout (Sensor: Kamera)** [cite: 52]
    [cite_start]Integrasi kamera perangkat menggunakan library `mobile_scanner` untuk membaca barcode produk (QR Code, Code 128, EAN-13) secara *real-time*[cite: 39, 54]. [cite_start]Sistem otomatis mencocokkan kode dengan database untuk mempercepat proses *checkout* tanpa input manual[cite: 47, 54].
