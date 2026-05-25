@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 import 'reset_password_screen.dart';
 
 class OtpScreen extends StatefulWidget {
@@ -20,8 +22,18 @@ class _OtpScreenState extends State<OtpScreen> {
   );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
-  // ignore: prefer_final_fields
   bool _isLoading = false;
+  bool _isResending = false;
+
+  // Cooldown timer untuk kirim ulang
+  int _resendCooldown = 60;
+  Timer? _cooldownTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCooldownTimer();
+  }
 
   @override
   void dispose() {
@@ -31,7 +43,102 @@ class _OtpScreenState extends State<OtpScreen> {
     for (final f in _focusNodes) {
       f.dispose();
     }
+    _cooldownTimer?.cancel();
     super.dispose();
+  }
+
+  void _startCooldownTimer() {
+    _resendCooldown = 60;
+    _cooldownTimer?.cancel();
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_resendCooldown <= 0) {
+        timer.cancel();
+      } else {
+        setState(() => _resendCooldown--);
+      }
+    });
+  }
+
+  String get _otpCode => _controllers.map((c) => c.text).join();
+
+  Future<void> _handleVerify() async {
+    final otp = _otpCode;
+
+    if (otp.length < 6) {
+      _showSnackBar('Masukkan 6 digit kode OTP', isError: true);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    // OTP diverifikasi saat reset password, jadi langsung navigate
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ResetPasswordScreen(
+          email: widget.email,
+          otp: otp,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleResendOtp() async {
+    if (_resendCooldown > 0 || _isResending) return;
+
+    setState(() => _isResending = true);
+
+    try {
+      await ApiService.forgotPassword(widget.email);
+
+      if (!mounted) return;
+
+      _showSnackBar('Kode OTP berhasil dikirim ulang');
+      _startCooldownTimer();
+
+      // Clear OTP fields
+      for (final c in _controllers) {
+        c.clear();
+      }
+      _focusNodes[0].requestFocus();
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar(
+        e.toString().replaceFirst('Exception: ', ''),
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _isResending = false);
+    }
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isError ? Icons.error_outline : Icons.check_circle_outline,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(message, style: const TextStyle(fontSize: 13)),
+            ),
+          ],
+        ),
+        backgroundColor: isError ? const Color(0xFFE53935) : _green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
   }
 
   @override
@@ -207,30 +314,57 @@ class _OtpScreenState extends State<OtpScreen> {
 
                         const SizedBox(height: 12),
 
-                        // kirim ulang
+                        // kirim ulang dengan cooldown
                         Center(
                           child: TextButton(
-                            onPressed: () {
-                              // TODO: resend OTP
-                            },
-                            child: RichText(
-                              text: TextSpan(
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey[400],
-                                ),
-                                children: const [
-                                  TextSpan(text: 'Tidak terima kode? '),
-                                  TextSpan(
-                                    text: 'Kirim ulang',
-                                    style: TextStyle(
-                                      color: _green,
-                                      fontWeight: FontWeight.w600,
+                            onPressed: _resendCooldown > 0 || _isResending
+                                ? null
+                                : _handleResendOtp,
+                            child: _isResending
+                                ? Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.grey[400],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Mengirim ulang...',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey[400],
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : RichText(
+                                    text: TextSpan(
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey[400],
+                                      ),
+                                      children: [
+                                        const TextSpan(
+                                            text: 'Tidak terima kode? '),
+                                        TextSpan(
+                                          text: _resendCooldown > 0
+                                              ? 'Kirim ulang (${_resendCooldown}s)'
+                                              : 'Kirim ulang',
+                                          style: TextStyle(
+                                            color: _resendCooldown > 0
+                                                ? Colors.grey[400]
+                                                : _green,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
                           ),
                         ),
 
@@ -250,22 +384,8 @@ class _OtpScreenState extends State<OtpScreen> {
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: ElevatedButton(
-                              onPressed: _isLoading
-                                  ? null
-                                  : () {
-                                      // TODO: validasi OTP
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => ResetPasswordScreen(
-                                            email: widget.email,
-                                            otp: _controllers
-                                                .map((c) => c.text)
-                                                .join(),
-                                          ),
-                                        ),
-                                      );
-                                    },
+                              onPressed:
+                                  _isLoading ? null : _handleVerify,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
