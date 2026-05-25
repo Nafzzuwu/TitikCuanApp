@@ -202,22 +202,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Container(
-                          width: 52,
-                          height: 52,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.3),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.lock_reset_outlined,
-                            color: Colors.white,
-                            size: 28,
-                          ),
+                        Image.asset(
+                          'assets/images/titikcuan_logo.png',
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.contain,
                         ),
                         const SizedBox(height: 16),
                         const Text(

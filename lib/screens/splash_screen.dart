@@ -156,24 +156,11 @@ class _SplashScreenState extends State<SplashScreen>
                   opacity: _logoOpacity,
                   child: SlideTransition(
                     position: _logoSlide,
-                    child: Container(
-                      width: 88,
-                      height: 88,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.3),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.location_on_outlined,
-                        size: 48,
-                        color: Colors.white,
-                      ),
-                      // TODO: ganti dengan logo PNG:
-                      // child: Image.asset('assets/images/logo.png'),
+                    child: Image.asset(
+                      'assets/images/titikcuan_logo.png',
+                      width: 140,
+                      height: 140,
+                      fit: BoxFit.contain,
                     ),
                   ),
                 ),

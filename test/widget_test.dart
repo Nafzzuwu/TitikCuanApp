@@ -21,7 +21,10 @@ void main() {
     // Verify that the tagline is displayed.
     expect(find.text('Cuan di setiap titik jualanmu'), findsOneWidget);
 
-    // Verify the logo icon is present.
-    expect(find.byIcon(Icons.location_on_outlined), findsOneWidget);
+    // Verify the logo image is present.
+    expect(find.byType(Image), findsOneWidget);
+
+    // Let animations and delayed futures complete, navigating to LoginScreen to dispose timers
+    await tester.pump(const Duration(seconds: 3));
   });
 }

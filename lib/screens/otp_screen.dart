@@ -80,10 +80,7 @@ class _OtpScreenState extends State<OtpScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ResetPasswordScreen(
-          email: widget.email,
-          otp: otp,
-        ),
+        builder: (_) => ResetPasswordScreen(email: widget.email, otp: otp),
       ),
     );
   }
@@ -173,22 +170,11 @@ class _OtpScreenState extends State<OtpScreen> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Container(
-                          width: 52,
-                          height: 52,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.3),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.location_on_outlined,
-                            color: Colors.white,
-                            size: 28,
-                          ),
+                        Image.asset(
+                          'assets/images/titikcuan_logo.png',
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.contain,
                         ),
                         const SizedBox(height: 16),
                         const Text(
@@ -350,7 +336,8 @@ class _OtpScreenState extends State<OtpScreen> {
                                       ),
                                       children: [
                                         const TextSpan(
-                                            text: 'Tidak terima kode? '),
+                                          text: 'Tidak terima kode? ',
+                                        ),
                                         TextSpan(
                                           text: _resendCooldown > 0
                                               ? 'Kirim ulang (${_resendCooldown}s)'
@@ -384,8 +371,7 @@ class _OtpScreenState extends State<OtpScreen> {
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: ElevatedButton(
-                              onPressed:
-                                  _isLoading ? null : _handleVerify,
+                              onPressed: _isLoading ? null : _handleVerify,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,

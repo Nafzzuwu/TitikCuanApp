@@ -230,7 +230,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             children: [
               // ── header hijau ──
               SizedBox(
-                height: size.height * 0.25,
+                height: size.height * 0.28,
                 child: SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -239,22 +239,11 @@ class _RegisterScreenState extends State<RegisterScreen>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         // logo kecil
-                        Container(
-                          width: 52,
-                          height: 52,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.3),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.person_add_outlined,
-                            color: Colors.white,
-                            size: 28,
-                          ),
+                        Image.asset(
+                          'assets/images/titikcuan_logo.png',
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.contain,
                         ),
                         const SizedBox(height: 16),
                         const Text(
