@@ -15,10 +15,7 @@ class DashboardScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text(
           'TitikCuan',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
         ),
         backgroundColor: _green,
         centerTitle: true,
