@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
+import '../services/auth_storage.dart';
+import 'dashboard_screen.dart';
 import 'otp_screen.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,7 +17,6 @@ class _LoginScreenState extends State<LoginScreen>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-  // ignore: prefer_final_fields
   bool _isLoading = false;
 
   late AnimationController _animController;
@@ -45,6 +48,81 @@ class _LoginScreenState extends State<LoginScreen>
     _passwordController.dispose();
     _animController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showSnackBar('Email dan password harus diisi', isError: true);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final result = await ApiService.login(
+        email: email,
+        password: password,
+      );
+
+      // Simpan token
+      if (result['token'] != null) {
+        await AuthStorage.saveToken(result['token']);
+      }
+
+      // Simpan user info jika tersedia
+      if (result['user'] != null) {
+        final user = result['user'];
+        await AuthStorage.saveUserInfo(
+          userId: user['id'] ?? 0,
+          name: user['name'] ?? '',
+          businessName: user['business_name'] ?? '',
+        );
+      }
+
+      if (!mounted) return;
+
+      // Navigate ke dashboard, clear stack
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar(
+        e.toString().replaceFirst('Exception: ', ''),
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isError ? Icons.error_outline : Icons.check_circle_outline,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(message, style: const TextStyle(fontSize: 13)),
+            ),
+          ],
+        ),
+        backgroundColor: isError ? const Color(0xFFE53935) : _green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
   }
 
   @override
@@ -259,11 +337,8 @@ class _LoginScreenState extends State<LoginScreen>
                                   ],
                                 ),
                                 child: ElevatedButton(
-                                  onPressed: _isLoading
-                                      ? null
-                                      : () {
-                                          // TODO: logic login
-                                        },
+                                  onPressed:
+                                      _isLoading ? null : _handleLogin,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.transparent,
                                     shadowColor: Colors.transparent,
@@ -327,7 +402,12 @@ class _LoginScreenState extends State<LoginScreen>
                               height: 52,
                               child: OutlinedButton(
                                 onPressed: () {
-                                  // TODO: navigate ke RegisterScreen
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const RegisterScreen(),
+                                    ),
+                                  );
                                 },
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: _green,
@@ -378,106 +458,157 @@ class _LoginScreenState extends State<LoginScreen>
 
   void _showForgotBottomSheet() {
     final emailController = TextEditingController();
+    bool isSending = false;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-            ),
-            padding: const EdgeInsets.fromLTRB(28, 12, 28, 36),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // handle bar
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius:
+                      BorderRadius.vertical(top: Radius.circular(28)),
                 ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Lupa password?',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A1A1A),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Masukkan email kamu, kami akan kirim kode OTP',
-                  style: TextStyle(fontSize: 13, color: Colors.grey[500]),
-                ),
-                const SizedBox(height: 24),
-                _buildLabel('Email'),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: _inputDecoration(
-                    hint: 'contoh@gmail.com',
-                    icon: Icons.mail_outline,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [_greenLight, _green, _greenDark],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                padding: const EdgeInsets.fromLTRB(28, 12, 28, 36),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // handle bar
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
-                      borderRadius: BorderRadius.circular(14),
                     ),
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                OtpScreen(email: emailController.text),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Lupa password?',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Masukkan email kamu, kami akan kirim kode OTP',
+                      style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                    ),
+                    const SizedBox(height: 24),
+                    _buildLabel('Email'),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: _inputDecoration(
+                        hint: 'contoh@gmail.com',
+                        icon: Icons.mail_outline,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [_greenLight, _green, _greenDark],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
-                      ),
-                      child: const Text(
-                        'Kirim OTP',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                        child: ElevatedButton(
+                          onPressed: isSending
+                              ? null
+                              : () async {
+                                  final email = emailController.text.trim();
+                                  if (email.isEmpty) {
+                                    _showSnackBar(
+                                      'Email harus diisi',
+                                      isError: true,
+                                    );
+                                    return;
+                                  }
+
+                                  setSheetState(() => isSending = true);
+
+                                  try {
+                                    await ApiService.forgotPassword(email);
+
+                                    if (!context.mounted) return;
+                                    Navigator.pop(context);
+
+                                    _showSnackBar(
+                                      'Kode OTP berhasil dikirim ke email',
+                                    );
+
+                                    if (!this.context.mounted) return;
+                                    // ignore: use_build_context_synchronously
+                                    Navigator.push(
+                                      // ignore: use_build_context_synchronously
+                                      this.context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            OtpScreen(email: email),
+                                      ),
+                                    );
+                                  } catch (e) {
+                                    setSheetState(() => isSending = false);
+                                    if (!context.mounted) return;
+                                    _showSnackBar(
+                                      e
+                                          .toString()
+                                          .replaceFirst('Exception: ', ''),
+                                      isError: true,
+                                    );
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: isSending
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Kirim OTP',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
