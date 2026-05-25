@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/user_model.dart';
 import '../services/api_service.dart';
 import '../services/auth_storage.dart';
 import 'dashboard_screen.dart';
@@ -74,11 +75,11 @@ class _LoginScreenState extends State<LoginScreen>
 
       // Simpan user info jika tersedia
       if (result['user'] != null) {
-        final user = result['user'];
+        final user = User.fromJson(result['user']);
         await AuthStorage.saveUserInfo(
-          userId: user['id'] ?? 0,
-          name: user['name'] ?? '',
-          businessName: user['business_name'] ?? '',
+          userId: user.id,
+          name: user.name,
+          businessName: user.businessName,
         );
       }
 
