@@ -57,6 +57,18 @@ class ApiService {
     return _handleResponse(res);
   }
 
+  static Future<Map<String, dynamic>> reactivate({
+    required String email,
+    required String password,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$_baseUrl/auth/reactivate'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'password': password}),
+    );
+    return _handleResponse(res);
+  }
+
   static Future<void> logout() async {
     final headers = await _headers();
     await http.post(Uri.parse('$_baseUrl/auth/logout'), headers: headers);
@@ -87,6 +99,16 @@ class ApiService {
       }),
     );
     return _handleResponse(res);
+  }
+
+  static Future<void> deactivateAccount() async {
+    final headers = await _headers();
+    final res = await http.post(
+      Uri.parse('$_baseUrl/auth/deactivate'),
+      headers: headers,
+    );
+    _handleResponse(res);
+    await AuthStorage.clear();
   }
 
   // ══════════════════════════════════════════════════════════════

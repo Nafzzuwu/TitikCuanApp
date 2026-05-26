@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
 import '../services/auth_storage.dart';
-import 'dashboard_screen.dart';
+import 'main_screen.dart';
 import 'otp_screen.dart';
 import 'register_screen.dart';
 
@@ -88,7 +88,88 @@ class _LoginScreenState extends State<LoginScreen>
       // Navigate ke dashboard, clear stack
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        MaterialPageRoute(builder: (_) => const MainScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final errorMsg = e.toString().replaceFirst('Exception: ', '');
+      if (errorMsg.toLowerCase().contains('nonaktif') ||
+          errorMsg.toLowerCase().contains('deactivate')) {
+        _showReactivateDialog(email, password);
+      } else {
+        _showSnackBar(errorMsg, isError: true);
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showReactivateDialog(String email, String password) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'Akun Dinonaktifkan',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'Akun Anda saat ini dinonaktifkan. Apakah Anda ingin mengaktifkan kembali akun Anda dan masuk?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _green,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _handleReactivate(email, password);
+            },
+            child: const Text('Aktifkan Kembali'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleReactivate(String email, String password) async {
+    setState(() => _isLoading = true);
+    try {
+      final result = await ApiService.reactivate(
+        email: email,
+        password: password,
+      );
+
+      // Simpan token
+      if (result['token'] != null) {
+        await AuthStorage.saveToken(result['token']);
+      }
+
+      // Simpan user info jika tersedia
+      if (result['user'] != null) {
+        final user = User.fromJson(result['user']);
+        await AuthStorage.saveUserInfo(
+          userId: user.id,
+          name: user.name,
+          businessName: user.businessName,
+        );
+      }
+
+      if (!mounted) return;
+      _showSnackBar('Akun berhasil diaktifkan kembali!', isError: false);
+
+      // Navigate ke dashboard, clear stack
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const MainScreen()),
         (route) => false,
       );
     } catch (e) {
