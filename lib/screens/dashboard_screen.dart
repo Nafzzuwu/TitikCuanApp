@@ -4,6 +4,8 @@ import '../services/auth_storage.dart';
 import 'login_screen.dart';
 import 'history_screen.dart';
 import 'profile_screen.dart';
+import 'stock_alert_screen.dart';
+import 'main_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -262,19 +264,31 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
       actions: [
         IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.notifications_none_rounded,
-              color: Colors.white,
-              size: 20,
+          icon: Badge(
+            isLabelVisible: _lowStockCount > 0,
+            label: Text('$_lowStockCount'),
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.notifications_none_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
           ),
-          onPressed: () {},
+          onPressed: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const StockAlertScreen()),
+            );
+            _loadData(); // Refresh unread count badge when returning
+          },
         ),
         IconButton(
           icon: Container(
@@ -543,11 +557,10 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget _buildHeatmapMini() {
     return GestureDetector(
       onTap: () {
-        // Navigate to Peta tab (index 3) via MainScreen
-        final mainState = context.findAncestorStateOfType<State>();
+        // Navigate to Peta tab (index 3) via MainScreenState
+        final mainState = context.findAncestorStateOfType<MainScreenState>();
         if (mainState != null && mainState.mounted) {
-          // Find the MainScreen and switch tab
-          _switchToTab(3);
+          mainState.setSelectedIndex(3);
         }
       },
       child: Container(
@@ -647,14 +660,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  void _switchToTab(int index) {
-    // Use a callback pattern to switch tabs in MainScreen
-    final scaffold = Scaffold.maybeOf(context);
-    if (scaffold != null) {
-      // Navigate using the parent MainScreen's state
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    }
-  }
 
   Widget _buildQuickActions() {
     return Row(
@@ -942,8 +947,8 @@ class _MiniHeatmapPainter extends CustomPainter {
     double minLng = double.infinity, maxLng = -double.infinity;
 
     for (final p in points) {
-      final lat = (p['latitude'] ?? 0).toDouble();
-      final lng = (p['longitude'] ?? 0).toDouble();
+      final lat = ((p['lat'] ?? p['latitude'] ?? 0.0) as num).toDouble();
+      final lng = ((p['lng'] ?? p['longitude'] ?? 0.0) as num).toDouble();
       if (lat < minLat) minLat = lat;
       if (lat > maxLat) maxLat = lat;
       if (lng < minLng) minLng = lng;
@@ -955,21 +960,21 @@ class _MiniHeatmapPainter extends CustomPainter {
     final pad = 20.0;
 
     for (final p in points) {
-      final lat = (p['latitude'] ?? 0).toDouble();
-      final lng = (p['longitude'] ?? 0).toDouble();
-      final sales = (p['total_sales'] ?? 1).toDouble();
+      final lat = ((p['lat'] ?? p['latitude'] ?? 0.0) as num).toDouble();
+      final lng = ((p['lng'] ?? p['longitude'] ?? 0.0) as num).toDouble();
+      final sales = ((p['intensity'] ?? p['total_sales'] ?? p['sales'] ?? 1.0) as num).toDouble();
 
-      final x = latRange == 0
+      final x = lngRange == 0
           ? size.width / 2
           : pad + ((lng - minLng) / lngRange) * (size.width - pad * 2);
-      final y = lngRange == 0
+      final y = latRange == 0
           ? size.height / 2
           : pad + ((maxLat - lat) / latRange) * (size.height - pad * 2);
 
       final maxSales = points
-          .map((e) => (e['total_sales'] ?? 1).toDouble())
+          .map((e) => ((e['intensity'] ?? e['total_sales'] ?? e['sales'] ?? 1.0) as num).toDouble())
           .reduce((a, b) => a > b ? a : b);
-      final intensity = (sales / maxSales).clamp(0.3, 1.0);
+      final intensity = maxSales == 0 ? 0.5 : (sales / maxSales).clamp(0.3, 1.0);
       final radius = 8 + intensity * 14;
 
       // Outer glow

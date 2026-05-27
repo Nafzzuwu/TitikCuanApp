@@ -9,11 +9,19 @@ class MainScreen extends StatefulWidget {
   const MainScreen({super.key, this.initialIndex = 0});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  State<MainScreen> createState() => MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class MainScreenState extends State<MainScreen> {
   late int _currentIndex;
+
+  void setSelectedIndex(int index) {
+    if (mounted) {
+      setState(() {
+        _currentIndex = index;
+      });
+    }
+  }
 
   static const _green = Color(0xFF1D9E75);
   static const _darkGreen = Color(0xFF147A5B);
