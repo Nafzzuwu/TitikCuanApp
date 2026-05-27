@@ -660,7 +660,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-
   Widget _buildQuickActions() {
     return Row(
       children: [
@@ -766,42 +765,87 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   void _showLogoutDialog() {
+    bool isLoggingOut = false;
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Keluar',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-        content: const Text('Apakah kamu yakin ingin keluar?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal', style: TextStyle(color: _subtleText)),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await ApiService.logout();
-              await AuthStorage.clear();
-              if (!mounted) return;
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (route) => false,
-              );
-            },
-            child: const Text(
-              'Keluar',
-              style: TextStyle(
-                color: Color(0xFFEF4444),
-                fontWeight: FontWeight.w600,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-            ),
-          ),
-        ],
-      ),
+              title: Text(
+                isLoggingOut ? 'Memproses...' : 'Keluar',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              content: isLoggingOut
+                  ? const Row(
+                      children: [
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            valueColor: AlwaysStoppedAnimation<Color>(_green),
+                          ),
+                        ),
+                        SizedBox(width: 16),
+                        Text(
+                          'Sedang logout...',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                      ],
+                    )
+                  : const Text('Apakah kamu yakin ingin keluar?'),
+              actions: isLoggingOut
+                  ? null
+                  : [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text(
+                          'Batal',
+                          style: TextStyle(color: _subtleText),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          setDialogState(() {
+                            isLoggingOut = true;
+                          });
+
+                          try {
+                            await ApiService.logout();
+                            await AuthStorage.clear();
+                          } catch (e) {
+                            debugPrint('Logout error: $e');
+                          }
+
+                          if (!mounted) return;
+
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const LoginScreen(),
+                            ),
+                            (route) => false,
+                          );
+                        },
+                        child: const Text(
+                          'Keluar',
+                          style: TextStyle(
+                            color: Color(0xFFEF4444),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -962,7 +1006,9 @@ class _MiniHeatmapPainter extends CustomPainter {
     for (final p in points) {
       final lat = ((p['lat'] ?? p['latitude'] ?? 0.0) as num).toDouble();
       final lng = ((p['lng'] ?? p['longitude'] ?? 0.0) as num).toDouble();
-      final sales = ((p['intensity'] ?? p['total_sales'] ?? p['sales'] ?? 1.0) as num).toDouble();
+      final sales =
+          ((p['intensity'] ?? p['total_sales'] ?? p['sales'] ?? 1.0) as num)
+              .toDouble();
 
       final x = lngRange == 0
           ? size.width / 2
@@ -972,9 +1018,16 @@ class _MiniHeatmapPainter extends CustomPainter {
           : pad + ((maxLat - lat) / latRange) * (size.height - pad * 2);
 
       final maxSales = points
-          .map((e) => ((e['intensity'] ?? e['total_sales'] ?? e['sales'] ?? 1.0) as num).toDouble())
+          .map(
+            (e) =>
+                ((e['intensity'] ?? e['total_sales'] ?? e['sales'] ?? 1.0)
+                        as num)
+                    .toDouble(),
+          )
           .reduce((a, b) => a > b ? a : b);
-      final intensity = maxSales == 0 ? 0.5 : (sales / maxSales).clamp(0.3, 1.0);
+      final intensity = maxSales == 0
+          ? 0.5
+          : (sales / maxSales).clamp(0.3, 1.0);
       final radius = 8 + intensity * 14;
 
       // Outer glow
