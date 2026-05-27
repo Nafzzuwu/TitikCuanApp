@@ -111,6 +111,22 @@ class ApiService {
     await AuthStorage.clear();
   }
 
+  static Future<Map<String, dynamic>> updateProfile({
+    String? name,
+    String? businessName,
+  }) async {
+    final headers = await _headers();
+    final res = await http.put(
+      Uri.parse('$_baseUrl/auth/update-profile'),
+      headers: headers,
+      body: jsonEncode({
+        if (name != null) 'name': name,
+        if (businessName != null) 'business_name': businessName,
+      }),
+    );
+    return _handleResponse(res);
+  }
+
   // ══════════════════════════════════════════════════════════════
   // DASHBOARD
   // ══════════════════════════════════════════════════════════════

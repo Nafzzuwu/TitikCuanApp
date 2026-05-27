@@ -279,8 +279,12 @@ class _HeatmapScreenState extends State<HeatmapScreen> {
                   data: _heatmapPoints,
                 ),
                 heatMapOptions: HeatMapOptions(
-                  gradient: HeatMapOptions.defaultGradient,
-                  minOpacity: 0.15,
+                  gradient: {
+                    0.0: Colors.orange,
+                    0.5: Colors.deepOrange,
+                    1.0: Colors.red,
+                  },
+                  minOpacity: 0.5,
                 ),
                 reset: _rebuildStream.stream,
               ),

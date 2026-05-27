@@ -120,22 +120,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 32),
             // Menu items
             _buildMenuItem(
-              icon: Icons.store_rounded,
-              label: 'Informasi Toko',
-              subtitle: 'Nama & detail toko',
-              onTap: () {},
+              icon: Icons.edit_rounded,
+              label: 'Edit Profil',
+              subtitle: 'Ubah nama dan nama toko Anda',
+              onTap: () => _showEditProfileDialog(),
             ),
-            _buildMenuItem(
-              icon: Icons.lock_rounded,
-              label: 'Keamanan',
-              subtitle: 'Ubah password',
-              onTap: () {},
-            ),
+            const SizedBox(height: 12),
             _buildMenuItem(
               icon: Icons.info_outline_rounded,
               label: 'Tentang Aplikasi',
               subtitle: 'TitikCuan v1.0.0',
-              onTap: () {},
+              onTap: () => _showAboutBottomSheet(),
             ),
             const SizedBox(height: 12),
             _buildMenuItem(
@@ -150,6 +145,135 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  void _showEditProfileDialog() {
+    final nameController = TextEditingController(text: _name);
+    final businessNameController = TextEditingController(text: _businessName);
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text(
+            'Edit Profil',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nama Pengguna',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.person_rounded),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Nama tidak boleh kosong';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: businessNameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nama Toko',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.store_rounded),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Nama toko tidak boleh kosong';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Batal', style: TextStyle(color: _subtleText)),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final newName = nameController.text.trim();
+                  final newBusinessName = businessNameController.text.trim();
+                  Navigator.pop(ctx);
+                  _updateProfile(newName, newBusinessName);
+                }
+              },
+              child: const Text(
+                'Simpan',
+                style: TextStyle(
+                  color: _green,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _updateProfile(String newName, String newBusinessName) async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) =>
+          const Center(child: CircularProgressIndicator(color: _green)),
+    );
+
+    try {
+      await ApiService.updateProfile(
+        name: newName,
+        businessName: newBusinessName,
+      );
+
+      final info = await AuthStorage.getUserInfo();
+      final userId = info['user_id'] ?? 0;
+
+      // Save new info to shared_preferences
+      await AuthStorage.saveUserInfo(
+        userId: userId,
+        name: newName,
+        businessName: newBusinessName,
+      );
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading indicator
+        setState(() {
+          _name = newName;
+          _businessName = newBusinessName;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profil berhasil diperbarui.'),
+            backgroundColor: _green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading indicator
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _showDeactivateDialog() {
@@ -186,14 +310,103 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _showAboutBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          padding: const EdgeInsets.fromLTRB(28, 12, 28, 36),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // handle bar
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // logo
+              ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.asset(
+                  'assets/images/titikcuan_logo.png',
+                  width: 64,
+                  height: 64,
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              const Text(
+                'TitikCuan',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Versi 1.0.0',
+                style: TextStyle(fontSize: 13, color: Colors.grey[400]),
+              ),
+              const SizedBox(height: 20),
+
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF4FBF8),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFD4EEE5)),
+                ),
+                child: const Text(
+                  'TitikCuan adalah aplikasi Point of Sale (POS) pintar untuk pedagang UMKM berpindah. '
+                  'Dilengkapi dengan pemindai barcode, pencatatan lokasi GPS, dan visualisasi peta penjualan '
+                  'untuk membantu pedagang menemukan "titik cuan" terbaik mereka.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF6B7280),
+                    height: 1.6,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              Text(
+                '© 2026 TitikCuan — Kelompok 8\nUniversitas Jember',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[400],
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _deactivateAccount() async {
     // Show loading indicator
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(color: _green),
-      ),
+      builder: (context) =>
+          const Center(child: CircularProgressIndicator(color: _green)),
     );
 
     try {
@@ -225,6 +438,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
   }
+
   Widget _buildMenuItem({
     required IconData icon,
     required String label,
