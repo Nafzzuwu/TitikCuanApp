@@ -25,6 +25,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   bool _isLoading = true;
   String _userName = '';
+  String? _profilePictureUrl;
 
   // Dashboard data
   int _salesToday = 0;
@@ -66,19 +67,20 @@ class _DashboardScreenState extends State<DashboardScreen>
     try {
       final userInfo = await AuthStorage.getUserInfo();
       _userName = userInfo['name'] ?? 'User';
+      _profilePictureUrl = userInfo['profile_picture'];
 
-      // Load dashboard, stock alerts, and heatmap in parallel
+      // Load dashboard, stock alerts, heatmap, and profile in parallel
       final results = await Future.wait([
         ApiService.getDashboard().catchError((_) => <String, dynamic>{}),
         ApiService.getStockAlerts().catchError((_) => <dynamic>[]),
         ApiService.getHeatmap().catchError((_) => <dynamic>[]),
+        ApiService.getProfile().catchError((_) => <String, dynamic>{}),
       ]);
 
       final dashboard = results[0] as Map<String, dynamic>;
       final alerts = results[1] as List<dynamic>;
       final heatmap = results[2] as List<dynamic>;
-
-      debugPrint('Dashboard API Response: $dashboard');
+      final profile = results[3] as Map<String, dynamic>;
 
       if (mounted) {
         setState(() {
@@ -106,8 +108,19 @@ class _DashboardScreenState extends State<DashboardScreen>
               .take(10)
               .map((e) => Map<String, dynamic>.from(e as Map))
               .toList();
+
+          final picUrl = profile['profile_picture'] as String?;
+          if (picUrl != null && picUrl.isNotEmpty) {
+            _profilePictureUrl = picUrl;
+          }
           _isLoading = false;
         });
+
+        final picUrl = profile['profile_picture'] as String?;
+        if (picUrl != null && picUrl.isNotEmpty) {
+          await AuthStorage.saveProfilePicture(picUrl);
+        }
+
         _fadeController.forward();
       }
     } catch (e) {
@@ -237,18 +250,10 @@ class _DashboardScreenState extends State<DashboardScreen>
       elevation: 0,
       title: Row(
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.storefront_rounded,
-              color: Colors.white,
-              size: 18,
-            ),
+          Image.asset(
+            'assets/images/titikcuan_logo.png',
+            width: 38,
+            height: 38,
           ),
           const SizedBox(width: 10),
           const Text(
@@ -287,7 +292,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               context,
               MaterialPageRoute(builder: (_) => const StockAlertScreen()),
             );
-            _loadData(); // Refresh unread count badge when returning
+            _loadData();
           },
         ),
         IconButton(
@@ -311,28 +316,189 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildGreetingSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '${_getGreeting()}, $_userName 👋',
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: _darkText,
-            letterSpacing: -0.5,
-          ),
+    final now = DateTime.now();
+    final months = [
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
+    ];
+    final days = [
+      'Minggu',
+      'Senin',
+      'Selasa',
+      'Rabu',
+      'Kamis',
+      'Jumat',
+      'Sabtu',
+    ];
+    final dateStr =
+        '${days[now.weekday % 7]}, ${now.day} ${months[now.month - 1]} ${now.year}';
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            _green.withValues(alpha: 0.08),
+            _green.withValues(alpha: 0.03),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        const SizedBox(height: 4),
-        const Text(
-          'Mari pantau performa tokomu hari ini.',
-          style: TextStyle(
-            fontSize: 14,
-            color: _subtleText,
-            fontWeight: FontWeight.w400,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _green.withValues(alpha: 0.12), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _getGreeting(),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: _darkGreen.withValues(alpha: 0.7),
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$_userName 👋',
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: _darkText,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _green.withValues(alpha: 0.25),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child:
+                      _profilePictureUrl != null &&
+                          _profilePictureUrl!.isNotEmpty
+                      ? Image.network(
+                          _profilePictureUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Color(0xFF1D9E75),
+                                      Color(0xFF15C58E),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    _userName.isNotEmpty
+                                        ? _userName[0].toUpperCase()
+                                        : 'U',
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                        )
+                      : Container(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFF1D9E75), Color(0xFF15C58E)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              _userName.isNotEmpty
+                                  ? _userName[0].toUpperCase()
+                                  : 'U',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _green.withValues(alpha: 0.1)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.calendar_today_rounded,
+                  size: 13,
+                  color: _darkGreen.withValues(alpha: 0.6),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  dateStr,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: _darkGreen.withValues(alpha: 0.7),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF4ADE80),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -686,11 +852,12 @@ class _DashboardScreenState extends State<DashboardScreen>
             subtitle: 'Pengaturan akun',
             color: const Color(0xFF8B5CF6),
             bgColor: const Color(0xFFF3E8FF),
-            onTap: () {
-              Navigator.push(
+            onTap: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const ProfileScreen()),
               );
+              _loadData();
             },
           ),
         ),
@@ -772,76 +939,215 @@ class _DashboardScreenState extends State<DashboardScreen>
       barrierDismissible: false,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setDialogState) {
-            return AlertDialog(
+          builder: (BuildContext builderCtx, StateSetter setDialogState) {
+            return Dialog(
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
               ),
-              title: Text(
-                isLoggingOut ? 'Memproses...' : 'Keluar',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              content: isLoggingOut
-                  ? const Row(
-                      children: [
-                        SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            valueColor: AlwaysStoppedAnimation<Color>(_green),
-                          ),
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Gradient header
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 28),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.red.shade500, Colors.red.shade700],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                        SizedBox(width: 16),
-                        Text(
-                          'Sedang logout...',
-                          style: TextStyle(fontSize: 14),
-                        ),
-                      ],
-                    )
-                  : const Text('Apakah kamu yakin ingin keluar?'),
-              actions: isLoggingOut
-                  ? null
-                  : [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text(
-                          'Batal',
-                          style: TextStyle(color: _subtleText),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(20),
                         ),
                       ),
-                      TextButton(
-                        onPressed: () async {
-                          setDialogState(() {
-                            isLoggingOut = true;
-                          });
-
-                          try {
-                            await ApiService.logout();
-                            await AuthStorage.clear();
-                          } catch (e) {
-                            debugPrint('Logout error: $e');
-                          }
-
-                          if (!mounted) return;
-
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const LoginScreen(),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
                             ),
-                            (route) => false,
-                          );
-                        },
-                        child: const Text(
-                          'Keluar',
-                          style: TextStyle(
-                            color: Color(0xFFEF4444),
-                            fontWeight: FontWeight.w600,
+                            child: const Icon(
+                              Icons.logout_rounded,
+                              color: Colors.white,
+                              size: 28,
+                            ),
                           ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Keluar dari Akun?',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Sesi kamu akan berakhir',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Content
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                      child: isLoggingOut
+                          ? Column(
+                              children: [
+                                SizedBox(
+                                  width: 40,
+                                  height: 40,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 3,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.red.shade500,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'Sedang logout...',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: _subtleText,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+                            )
+                          : Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.red.shade100),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.info_outline_rounded,
+                                    color: Colors.red.shade400,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Expanded(
+                                    child: Text(
+                                      'Kamu perlu login kembali untuk mengakses akunmu setelah keluar.',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: _darkText,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                    ),
+
+                    // Actions
+                    if (!isLoggingOut)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  side: const BorderSide(
+                                    color: Color(0xFFE5E7EB),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Batal',
+                                  style: TextStyle(
+                                    color: _subtleText,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  final navigator = Navigator.of(context);
+
+                                  setDialogState(() {
+                                    isLoggingOut = true;
+                                  });
+
+                                  try {
+                                    await ApiService.logout();
+                                    await AuthStorage.clear();
+                                  } catch (e) {
+                                    debugPrint('Logout error: $e');
+                                  }
+
+                                  if (!mounted) return;
+
+                                  navigator.pushAndRemoveUntil(
+                                    MaterialPageRoute(
+                                      builder: (_) => const LoginScreen(),
+                                    ),
+                                    (route) => false,
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red.shade600,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Ya, Keluar',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                  ],
+                ),
+              ),
             );
           },
         );
@@ -856,16 +1162,16 @@ class _DashboardScreenState extends State<DashboardScreen>
       isScrollControlled: true,
       builder: (ctx) => Container(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.5,
+          maxHeight: MediaQuery.of(context).size.height * 0.55,
         ),
         decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Container(
               width: 40,
               height: 4,
@@ -874,7 +1180,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
               child: Row(

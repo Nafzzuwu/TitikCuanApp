@@ -26,6 +26,7 @@ class _HeatmapScreenState extends State<HeatmapScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   List<WeightedLatLng> _heatmapPoints = [];
+  LatLng? _currentUserLocation;
 
   // Default coordinate: Jember, Indonesia
   LatLng _mapCenter = const LatLng(-8.1724, 113.6995);
@@ -78,14 +79,17 @@ class _HeatmapScreenState extends State<HeatmapScreen> {
         }
       }
 
-      // 2. Fetch device location if permitted (optional fallback for map center)
+      // 2. Fetch device location (request permission if denied)
       LatLng? userLocation;
       try {
-        final permission = await Geolocator.checkPermission();
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+        }
         if (permission == LocationPermission.whileInUse ||
             permission == LocationPermission.always) {
           final position = await Geolocator.getCurrentPosition(
-            timeLimit: const Duration(seconds: 3),
+            timeLimit: const Duration(seconds: 5),
           );
           userLocation = LatLng(position.latitude, position.longitude);
         }
@@ -96,6 +100,7 @@ class _HeatmapScreenState extends State<HeatmapScreen> {
       if (mounted) {
         setState(() {
           _heatmapPoints = points;
+          _currentUserLocation = userLocation;
 
           // Determine best initial center
           if (points.isNotEmpty && firstLatLng != null) {
@@ -143,6 +148,12 @@ class _HeatmapScreenState extends State<HeatmapScreen> {
 
       final position = await Geolocator.getCurrentPosition();
       final target = LatLng(position.latitude, position.longitude);
+
+      if (mounted) {
+        setState(() {
+          _currentUserLocation = target;
+        });
+      }
 
       _mapController.move(target, 14.0);
       _showSnackBar('Menampilkan lokasi Anda');
@@ -287,6 +298,40 @@ class _HeatmapScreenState extends State<HeatmapScreen> {
                   minOpacity: 0.5,
                 ),
                 reset: _rebuildStream.stream,
+              ),
+
+            // Marker Layer for User Current Location
+            if (_currentUserLocation != null)
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: _currentUserLocation!,
+                    width: 30,
+                    height: 30,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: _green,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 3),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _green.withValues(alpha: 0.4),
+                            blurRadius: 8,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.person_pin_circle_rounded,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
           ],
         ),

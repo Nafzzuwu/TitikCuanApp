@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
+import 'main_screen.dart';
+import '../services/auth_storage.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -64,11 +66,18 @@ class _SplashScreenState extends State<SplashScreen>
     _logoController.forward();
     await Future.delayed(const Duration(milliseconds: 300));
     _titleController.forward();
-    await Future.delayed(const Duration(milliseconds: 2000));
+
+    // Cek status sesi login secara asinkronus selama animasi berjalan
+    final loggedIn = await AuthStorage.isLoggedIn();
+    final token = await AuthStorage.getToken();
+
+    await Future.delayed(const Duration(milliseconds: 1500));
     if (mounted) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        MaterialPageRoute(
+          builder: (_) => loggedIn ? const MainScreen() : const LoginScreen(),
+        ),
       );
     }
   }
