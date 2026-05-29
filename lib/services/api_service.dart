@@ -57,6 +57,18 @@ class ApiService {
     return _handleResponse(res);
   }
 
+  static Future<Map<String, dynamic>> reactivate({
+    required String email,
+    required String password,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$_baseUrl/auth/reactivate'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'password': password}),
+    );
+    return _handleResponse(res);
+  }
+
   static Future<void> logout() async {
     final headers = await _headers();
     await http.post(Uri.parse('$_baseUrl/auth/logout'), headers: headers);
@@ -87,6 +99,87 @@ class ApiService {
       }),
     );
     return _handleResponse(res);
+  }
+
+  static Future<void> deactivateAccount() async {
+    final headers = await _headers();
+    final res = await http.post(
+      Uri.parse('$_baseUrl/auth/deactivate'),
+      headers: headers,
+    );
+    _handleResponse(res);
+    await AuthStorage.clear();
+  }
+
+  static Future<Map<String, dynamic>> updateProfile({
+    String? name,
+    String? businessName,
+  }) async {
+    final headers = await _headers();
+    final res = await http.put(
+      Uri.parse('$_baseUrl/auth/update-profile'),
+      headers: headers,
+      body: jsonEncode({
+        if (name != null) 'name': name,
+        if (businessName != null) 'business_name': businessName,
+      }),
+    );
+    return _handleResponse(res);
+  }
+
+  static Future<void> updateProfilePicture(String url) async {
+    final res = await http.patch(
+      Uri.parse('$_baseUrl/auth/profile-picture'),
+      headers: await _headers(),
+      body: jsonEncode({'profile_picture': url}),
+    );
+    _handleResponse(res);
+  }
+
+  static Future<Map<String, dynamic>> getProfile() async {
+    final res = await http.get(
+      Uri.parse('$_baseUrl/auth/profile'),
+      headers: await _headers(),
+    );
+    return _handleResponse(res);
+  }
+
+  // ── helper: Upload ke Supabase Storage ──────────────────────────
+  static const String _supabaseUrl = 'https://onbcbwuxutnmirffkhks.supabase.co';
+  static const String _supabaseAnonKey =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uYmNid3V4dXRubWlyZmZraGtzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTI1OTgsImV4cCI6MjA5NDA2ODU5OH0.ORcaSBOe0f7rPMvEFwqFWz2zjWoCcKxfFpVu26hs7dE';
+  static const String _bucketName = 'profile-pictures';
+
+  static Future<String> uploadToSupabase({
+    required List<int> fileBytes,
+    required String fileName,
+  }) async {
+    final ext = fileName.contains('.') ? fileName.split('.').last : 'jpg';
+    final cleanFileName =
+        '${DateTime.now().millisecondsSinceEpoch}_${fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_')}';
+
+    // Upload menggunakan simple upload (PUT)
+    final uploadUri = Uri.parse(
+      '$_supabaseUrl/storage/v1/object/$_bucketName/$cleanFileName',
+    );
+
+    final response = await http.put(
+      uploadUri,
+      headers: {
+        'Authorization': 'Bearer $_supabaseAnonKey',
+        'apikey': _supabaseAnonKey,
+        'Content-Type': 'image/$ext',
+        'x-upsert': 'true',
+      },
+      body: fileBytes,
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      // Return URL publik gambar
+      return '$_supabaseUrl/storage/v1/object/public/$_bucketName/$cleanFileName';
+    } else {
+      throw Exception('Gagal mengunggah foto: ${response.body}');
+    }
   }
 
   // ══════════════════════════════════════════════════════════════

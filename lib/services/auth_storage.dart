@@ -5,6 +5,7 @@ class AuthStorage {
   static const _userIdKey = 'user_id';
   static const _nameKey = 'user_name';
   static const _businessKey = 'business_name';
+  static const _profilePictureKey = 'profile_picture';
 
   static Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
@@ -20,11 +21,20 @@ class AuthStorage {
     required int userId,
     required String name,
     required String businessName,
+    String? profilePicture,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_userIdKey, userId);
     await prefs.setString(_nameKey, name);
     await prefs.setString(_businessKey, businessName);
+    if (profilePicture != null) {
+      await prefs.setString(_profilePictureKey, profilePicture);
+    }
+  }
+
+  static Future<void> saveProfilePicture(String url) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_profilePictureKey, url);
   }
 
   static Future<Map<String, dynamic>> getUserInfo() async {
@@ -33,6 +43,7 @@ class AuthStorage {
       'user_id': prefs.getInt(_userIdKey),
       'name': prefs.getString(_nameKey),
       'business_name': prefs.getString(_businessKey),
+      'profile_picture': prefs.getString(_profilePictureKey),
     };
   }
 
