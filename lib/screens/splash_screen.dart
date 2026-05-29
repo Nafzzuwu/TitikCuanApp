@@ -69,7 +69,6 @@ class _SplashScreenState extends State<SplashScreen>
 
     // Cek status sesi login secara asinkronus selama animasi berjalan
     final loggedIn = await AuthStorage.isLoggedIn();
-    final token = await AuthStorage.getToken();
 
     await Future.delayed(const Duration(milliseconds: 1500));
     if (mounted) {
