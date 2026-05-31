@@ -340,7 +340,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   const SizedBox(height: 16),
 
-                  // Danger zone
+                  // Nonaktifkan Akun — tile biasa, icon merah
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -357,12 +357,70 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       icon: Icons.no_accounts_rounded,
                       label: 'Nonaktifkan Akun',
                       subtitle: 'Menonaktifkan akun sementara',
-                      iconColor: Colors.red.shade700,
+                      iconColor: Colors.red.shade600,
                       bgColor: Colors.red.shade50,
-                      labelColor: Colors.red.shade700,
+                      labelColor: _darkText,
                       onTap: () => _showDeactivateDialog(),
                       isFirst: true,
                       isLast: true,
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Logout — full-width outlined button merah
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showLogoutDialog(),
+                      icon: const Icon(Icons.logout_rounded, size: 18),
+                      label: const Text(
+                        'Keluar',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ButtonStyle(
+                        foregroundColor: WidgetStateProperty.all(
+                          Colors.red.shade600,
+                        ),
+                        backgroundColor: WidgetStateProperty.resolveWith((
+                          states,
+                        ) {
+                          if (states.contains(WidgetState.pressed)) {
+                            return Colors.red.shade100;
+                          }
+                          if (states.contains(WidgetState.hovered)) {
+                            return Colors.red.shade100;
+                          }
+                          return Colors.red.shade50;
+                        }),
+                        side: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.hovered) ||
+                              states.contains(WidgetState.pressed)) {
+                            return BorderSide(
+                              color: Colors.red.shade400,
+                              width: 1.5,
+                            );
+                          }
+                          return BorderSide(
+                            color: Colors.red.shade200,
+                            width: 1.5,
+                          );
+                        }),
+                        overlayColor: WidgetStateProperty.all(
+                          Colors.transparent,
+                        ),
+                        padding: WidgetStateProperty.all(
+                          const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        shape: WidgetStateProperty.all(
+                          RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -1032,6 +1090,230 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _showLogoutDialog() {
+    bool isLoggingOut = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (BuildContext builderCtx, StateSetter setDialogState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Gradient header
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 28),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.red.shade500, Colors.red.shade700],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(20),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.logout_rounded,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Keluar dari Akun?',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Sesi kamu akan berakhir',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Content
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                      child: isLoggingOut
+                          ? Column(
+                              children: [
+                                SizedBox(
+                                  width: 40,
+                                  height: 40,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 3,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.red.shade500,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'Sedang logout...',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: _subtleText,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+                            )
+                          : Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.red.shade100),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.info_outline_rounded,
+                                    color: Colors.red.shade400,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Expanded(
+                                    child: Text(
+                                      'Kamu perlu login kembali untuk mengakses akunmu setelah keluar.',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: _darkText,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                    ),
+
+                    // Actions
+                    if (!isLoggingOut)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  side: const BorderSide(
+                                    color: Color(0xFFE5E7EB),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Batal',
+                                  style: TextStyle(
+                                    color: _subtleText,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  final navigator = Navigator.of(context);
+
+                                  setDialogState(() {
+                                    isLoggingOut = true;
+                                  });
+
+                                  try {
+                                    await ApiService.logout();
+                                    await AuthStorage.clear();
+                                  } catch (e) {
+                                    debugPrint('Logout error: $e');
+                                  }
+
+                                  if (!mounted) return;
+
+                                  navigator.pushAndRemoveUntil(
+                                    MaterialPageRoute(
+                                      builder: (_) => const LoginScreen(),
+                                    ),
+                                    (route) => false,
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red.shade600,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Ya, Keluar',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showAboutBottomSheet() {
     showModalBottomSheet(
       context: context,
@@ -1169,6 +1451,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Color? iconColor,
     Color? bgColor,
     Color? labelColor,
+    Color? subtitleColor,
+    Color? chevronColor,
     bool isFirst = false,
     bool isLast = false,
   }) {
@@ -1210,9 +1494,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: _subtleText,
+                          color: subtitleColor ?? _subtleText,
                         ),
                       ),
                     ],
@@ -1220,7 +1504,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 Icon(
                   Icons.chevron_right_rounded,
-                  color: iconColor?.withValues(alpha: 0.5) ?? _subtleText,
+                  color:
+                      chevronColor ??
+                      iconColor?.withValues(alpha: 0.5) ??
+                      _subtleText,
                   size: 20,
                 ),
               ],

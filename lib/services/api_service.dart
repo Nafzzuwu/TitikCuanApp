@@ -3,6 +3,16 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'auth_storage.dart';
 
+class UnauthorizedException implements Exception {
+  final String message;
+  UnauthorizedException([
+    this.message = 'Sesi telah berakhir, silakan masuk kembali.',
+  ]);
+
+  @override
+  String toString() => message;
+}
+
 class ApiService {
   static const String _baseUrl = 'https://titik-cuan-api.vercel.app';
 
@@ -19,6 +29,13 @@ class ApiService {
   static dynamic _handleResponse(http.Response res) {
     final body = jsonDecode(res.body);
     if (res.statusCode >= 200 && res.statusCode < 300) return body;
+    if (res.statusCode == 401) {
+      throw UnauthorizedException(
+        body['error'] ??
+            body['message'] ??
+            'Sesi telah berakhir, silakan masuk kembali.',
+      );
+    }
     throw Exception(body['error'] ?? body['message'] ?? 'Terjadi kesalahan');
   }
 
@@ -70,9 +87,13 @@ class ApiService {
   }
 
   static Future<void> logout() async {
-    final headers = await _headers();
-    await http.post(Uri.parse('$_baseUrl/auth/logout'), headers: headers);
-    await AuthStorage.clear();
+    try {
+      final headers = await _headers();
+      await http.post(Uri.parse('$_baseUrl/auth/logout'), headers: headers);
+    } catch (_) {
+    } finally {
+      await AuthStorage.clear();
+    }
   }
 
   static Future<Map<String, dynamic>> forgotPassword(String email) async {
@@ -370,6 +391,20 @@ class ApiService {
     final res = await http.patch(
       Uri.parse('$_baseUrl/stock-alerts/$id/read'),
       headers: await _headers(),
+    );
+    _handleResponse(res);
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // FCM
+  // ══════════════════════════════════════════════════════════════
+
+  static Future<void> saveFcmToken(String token) async {
+    final headers = await _headers();
+    final res = await http.post(
+      Uri.parse('$_baseUrl/fcm/token'),
+      headers: headers,
+      body: jsonEncode({'token': token}),
     );
     _handleResponse(res);
   }
