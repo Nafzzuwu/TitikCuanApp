@@ -5,6 +5,8 @@ import '../services/auth_storage.dart';
 import 'main_screen.dart';
 import 'otp_screen.dart';
 import 'register_screen.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -63,10 +65,7 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _isLoading = true);
 
     try {
-      final result = await ApiService.login(
-        email: email,
-        password: password,
-      );
+      final result = await ApiService.login(email: email, password: password);
 
       // Simpan token
       if (result['token'] != null) {
@@ -81,6 +80,16 @@ class _LoginScreenState extends State<LoginScreen>
           name: user.name,
           businessName: user.businessName,
         );
+      }
+
+      // Simpan FCM token
+      if (!kIsWeb) {
+        try {
+          final fcmToken = await FirebaseMessaging.instance.getToken();
+          if (fcmToken != null) await ApiService.saveFcmToken(fcmToken);
+        } catch (e) {
+          debugPrint('Gagal simpan FCM token: $e');
+        }
       }
 
       if (!mounted) return;
@@ -161,6 +170,22 @@ class _LoginScreenState extends State<LoginScreen>
           name: user.name,
           businessName: user.businessName,
         );
+      }
+
+      // Simpan FCM token
+      if (!kIsWeb) {
+        try {
+          final fcmToken = await FirebaseMessaging.instance.getToken();
+          debugPrint('FCM Token didapat: $fcmToken'); // tambah ini
+          if (fcmToken != null) {
+            await ApiService.saveFcmToken(fcmToken);
+            debugPrint('FCM Token berhasil disimpan'); // tambah ini
+          } else {
+            debugPrint('FCM Token null!'); // tambah ini
+          }
+        } catch (e) {
+          debugPrint('Gagal simpan FCM token: $e');
+        }
       }
 
       if (!mounted) return;
@@ -408,8 +433,7 @@ class _LoginScreenState extends State<LoginScreen>
                                   ],
                                 ),
                                 child: ElevatedButton(
-                                  onPressed:
-                                      _isLoading ? null : _handleLogin,
+                                  onPressed: _isLoading ? null : _handleLogin,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.transparent,
                                     shadowColor: Colors.transparent,
@@ -545,8 +569,7 @@ class _LoginScreenState extends State<LoginScreen>
               child: Container(
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(28)),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                 ),
                 padding: const EdgeInsets.fromLTRB(28, 12, 28, 36),
                 child: Column(
@@ -633,17 +656,17 @@ class _LoginScreenState extends State<LoginScreen>
                                       // ignore: use_build_context_synchronously
                                       this.context,
                                       MaterialPageRoute(
-                                        builder: (_) =>
-                                            OtpScreen(email: email),
+                                        builder: (_) => OtpScreen(email: email),
                                       ),
                                     );
                                   } catch (e) {
                                     setSheetState(() => isSending = false);
                                     if (!context.mounted) return;
                                     _showSnackBar(
-                                      e
-                                          .toString()
-                                          .replaceFirst('Exception: ', ''),
+                                      e.toString().replaceFirst(
+                                        'Exception: ',
+                                        '',
+                                      ),
                                       isError: true,
                                     );
                                   }

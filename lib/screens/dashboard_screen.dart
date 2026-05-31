@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/auth_storage.dart';
-import 'login_screen.dart';
 import 'history_screen.dart';
 import 'profile_screen.dart';
 import 'stock_alert_screen.dart';
 import 'main_screen.dart';
+import 'login_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -62,6 +62,15 @@ class _DashboardScreenState extends State<DashboardScreen>
     super.dispose();
   }
 
+  int _parseInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is num) return value.toInt();
+    if (value is String) {
+      return int.tryParse(value) ?? double.tryParse(value)?.toInt() ?? 0;
+    }
+    return 0;
+  }
+
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
@@ -70,11 +79,24 @@ class _DashboardScreenState extends State<DashboardScreen>
       _profilePictureUrl = userInfo['profile_picture'];
 
       // Load dashboard, stock alerts, heatmap, and profile in parallel
+      // Biarkan UnauthorizedException merambat ke blok catch luar agar ditangani auto-logout
       final results = await Future.wait([
-        ApiService.getDashboard().catchError((_) => <String, dynamic>{}),
-        ApiService.getStockAlerts().catchError((_) => <dynamic>[]),
-        ApiService.getHeatmap().catchError((_) => <dynamic>[]),
-        ApiService.getProfile().catchError((_) => <String, dynamic>{}),
+        ApiService.getDashboard().catchError((e) {
+          if (e is UnauthorizedException) throw e;
+          return <String, dynamic>{};
+        }),
+        ApiService.getStockAlerts().catchError((e) {
+          if (e is UnauthorizedException) throw e;
+          return <dynamic>[];
+        }),
+        ApiService.getHeatmap().catchError((e) {
+          if (e is UnauthorizedException) throw e;
+          return <dynamic>[];
+        }),
+        ApiService.getProfile().catchError((e) {
+          if (e is UnauthorizedException) throw e;
+          return <String, dynamic>{};
+        }),
       ]);
 
       final dashboard = results[0] as Map<String, dynamic>;
@@ -84,16 +106,13 @@ class _DashboardScreenState extends State<DashboardScreen>
 
       if (mounted) {
         setState(() {
-          _salesToday =
-              ((dashboard['today_sales'] ?? dashboard['sales_today'] ?? 0)
-                      as num)
-                  .toInt();
-          _salesMonth =
-              ((dashboard['monthly_sales'] ?? dashboard['sales_month'] ?? 0)
-                      as num)
-                  .toInt();
-          _totalTransactions = ((dashboard['total_transactions'] ?? 0) as num)
-              .toInt();
+          _salesToday = _parseInt(
+            dashboard['today_sales'] ?? dashboard['sales_today'],
+          );
+          _salesMonth = _parseInt(
+            dashboard['monthly_sales'] ?? dashboard['sales_month'],
+          );
+          _totalTransactions = _parseInt(dashboard['total_transactions']);
           _bestProduct =
               (dashboard['best_selling_product'] ??
                       dashboard['best_product'] ??
@@ -102,11 +121,13 @@ class _DashboardScreenState extends State<DashboardScreen>
           _lowStockCount = alerts.length;
           _lowStockProducts = alerts
               .take(5)
-              .map((e) => Map<String, dynamic>.from(e as Map))
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
               .toList();
           _heatmapPoints = heatmap
               .take(10)
-              .map((e) => Map<String, dynamic>.from(e as Map))
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
               .toList();
 
           final picUrl = profile['profile_picture'] as String?;
@@ -126,6 +147,38 @@ class _DashboardScreenState extends State<DashboardScreen>
     } catch (e) {
       debugPrint('Dashboard load error: $e');
       if (mounted) {
+        if (e is UnauthorizedException) {
+          // Bersihkan data sesi lokal
+          await AuthStorage.clear();
+          if (!mounted) return;
+
+          // Beritahu user melalui SnackBar yang elegan
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: Colors.white),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(e.toString())),
+                ],
+              ),
+              backgroundColor: Colors.red[700],
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+
+          // Arahkan kembali ke LoginScreen & hapus seluruh stack navigasi
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            (route) => false,
+          );
+          return;
+        }
+
         setState(() => _isLoading = false);
         _fadeController.forward();
       }
@@ -294,21 +347,6 @@ class _DashboardScreenState extends State<DashboardScreen>
             );
             _loadData();
           },
-        ),
-        IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.logout_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
-          ),
-          onPressed: () => _showLogoutDialog(),
         ),
         const SizedBox(width: 8),
       ],
@@ -931,230 +969,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  void _showLogoutDialog() {
-    bool isLoggingOut = false;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (BuildContext builderCtx, StateSetter setDialogState) {
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              elevation: 0,
-              backgroundColor: Colors.transparent,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Gradient header
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 28),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.red.shade500, Colors.red.shade700],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(20),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Container(
-                            width: 56,
-                            height: 56,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.logout_rounded,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Keluar dari Akun?',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Sesi kamu akan berakhir',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.8),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Content
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-                      child: isLoggingOut
-                          ? Column(
-                              children: [
-                                SizedBox(
-                                  width: 40,
-                                  height: 40,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 3,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.red.shade500,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                const Text(
-                                  'Sedang logout...',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: _subtleText,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                              ],
-                            )
-                          : Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade50,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.red.shade100),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.info_outline_rounded,
-                                    color: Colors.red.shade400,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  const Expanded(
-                                    child: Text(
-                                      'Kamu perlu login kembali untuk mengakses akunmu setelah keluar.',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: _darkText,
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                    ),
-
-                    // Actions
-                    if (!isLoggingOut)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () => Navigator.pop(ctx),
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  side: const BorderSide(
-                                    color: Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Batal',
-                                  style: TextStyle(
-                                    color: _subtleText,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () async {
-                                  final navigator = Navigator.of(context);
-
-                                  setDialogState(() {
-                                    isLoggingOut = true;
-                                  });
-
-                                  try {
-                                    await ApiService.logout();
-                                    await AuthStorage.clear();
-                                  } catch (e) {
-                                    debugPrint('Logout error: $e');
-                                  }
-
-                                  if (!mounted) return;
-
-                                  navigator.pushAndRemoveUntil(
-                                    MaterialPageRoute(
-                                      builder: (_) => const LoginScreen(),
-                                    ),
-                                    (route) => false,
-                                  );
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red.shade600,
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Ya, Keluar',
-                                  style: TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   void _showLowStockDialog() {
     showModalBottomSheet(
       context: context,
@@ -1241,7 +1055,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 ),
                               ),
                               Text(
-                                'Sisa: ${p['current_stock'] ?? 0} / Min: ${p['min_stock'] ?? 0}',
+                                'Sisa: ${p['stock_at_alert'] ?? 0} / Min: ${p['min_stock'] ?? 0}',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: _subtleText,
@@ -1260,7 +1074,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            '${p['current_stock'] ?? 0} pcs',
+                            '${p['stock_at_alert'] ?? 0} pcs',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -1288,6 +1102,15 @@ class _MiniHeatmapPainter extends CustomPainter {
 
   _MiniHeatmapPainter(this.points);
 
+  double _parseDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is num) return value.toDouble();
+    if (value is String) {
+      return double.tryParse(value) ?? 0.0;
+    }
+    return 0.0;
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     if (points.isEmpty) return;
@@ -1297,8 +1120,8 @@ class _MiniHeatmapPainter extends CustomPainter {
     double minLng = double.infinity, maxLng = -double.infinity;
 
     for (final p in points) {
-      final lat = ((p['lat'] ?? p['latitude'] ?? 0.0) as num).toDouble();
-      final lng = ((p['lng'] ?? p['longitude'] ?? 0.0) as num).toDouble();
+      final lat = _parseDouble(p['lat'] ?? p['latitude']);
+      final lng = _parseDouble(p['lng'] ?? p['longitude']);
       if (lat < minLat) minLat = lat;
       if (lat > maxLat) maxLat = lat;
       if (lng < minLng) minLng = lng;
@@ -1310,11 +1133,11 @@ class _MiniHeatmapPainter extends CustomPainter {
     final pad = 20.0;
 
     for (final p in points) {
-      final lat = ((p['lat'] ?? p['latitude'] ?? 0.0) as num).toDouble();
-      final lng = ((p['lng'] ?? p['longitude'] ?? 0.0) as num).toDouble();
-      final sales =
-          ((p['intensity'] ?? p['total_sales'] ?? p['sales'] ?? 1.0) as num)
-              .toDouble();
+      final lat = _parseDouble(p['lat'] ?? p['latitude']);
+      final lng = _parseDouble(p['lng'] ?? p['longitude']);
+      final sales = _parseDouble(
+        p['intensity'] ?? p['total_sales'] ?? p['sales'] ?? 1.0,
+      );
 
       final x = lngRange == 0
           ? size.width / 2
@@ -1325,10 +1148,9 @@ class _MiniHeatmapPainter extends CustomPainter {
 
       final maxSales = points
           .map(
-            (e) =>
-                ((e['intensity'] ?? e['total_sales'] ?? e['sales'] ?? 1.0)
-                        as num)
-                    .toDouble(),
+            (e) => _parseDouble(
+              e['intensity'] ?? e['total_sales'] ?? e['sales'] ?? 1.0,
+            ),
           )
           .reduce((a, b) => a > b ? a : b);
       final intensity = maxSales == 0
@@ -1341,13 +1163,13 @@ class _MiniHeatmapPainter extends CustomPainter {
         ..shader =
             RadialGradient(
               colors: [
-                const Color(0xFF1D9E75).withValues(alpha: intensity * 0.3),
+                const Color(0xFF1D9E75).withValues(alpha: intensity * 0.25),
                 const Color(0xFF1D9E75).withValues(alpha: 0),
               ],
             ).createShader(
-              Rect.fromCircle(center: Offset(x, y), radius: radius * 2),
+              Rect.fromCircle(center: Offset(x, y), radius: radius * 1.3),
             );
-      canvas.drawCircle(Offset(x, y), radius * 2, glowPaint);
+      canvas.drawCircle(Offset(x, y), radius * 1.3, glowPaint);
 
       // Inner dot
       final dotPaint = Paint()
@@ -1356,7 +1178,7 @@ class _MiniHeatmapPainter extends CustomPainter {
           const Color(0xFF15803D),
           intensity,
         )!;
-      canvas.drawCircle(Offset(x, y), radius * 0.4, dotPaint);
+      canvas.drawCircle(Offset(x, y), radius * 0.35, dotPaint);
     }
   }
 

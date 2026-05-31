@@ -1,8 +1,13 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import '../services/api_service.dart';
 import 'dashboard_screen.dart';
 import 'transaction_screen.dart';
 import 'product_screen.dart';
 import 'heatmap_screen.dart';
+import 'stock_alert_screen.dart';
 
 class MainScreen extends StatefulWidget {
   final int initialIndex;
@@ -38,6 +43,55 @@ class MainScreenState extends State<MainScreen> {
       ProductScreen(),
       HeatmapScreen(),
     ];
+    _initFCM();
+  }
+
+  Future<void> _initFCM() async {
+    if (kIsWeb) return;
+    try {
+      if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+        // 1. Dapatkan FCM Token & simpan ke backend
+        final fcmToken = await FirebaseMessaging.instance.getToken();
+        if (fcmToken != null) {
+          await ApiService.saveFcmToken(fcmToken);
+          debugPrint('FCM Token berhasil disimpan saat startup: $fcmToken');
+        }
+
+        // 2. Dengarkan jika token direfresh
+        FirebaseMessaging.instance.onTokenRefresh.listen((token) async {
+          await ApiService.saveFcmToken(token);
+          debugPrint('FCM Token direfresh & disimpan: $token');
+        });
+
+        // 3. Tangani saat notifikasi diketuk (app di background)
+        FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+          debugPrint('Notifikasi diketuk saat di background: ${message.data}');
+          _handleNotificationClick(message);
+        });
+
+        // 4. Periksa jika app dibuka dari terminated state oleh notifikasi
+        final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+        if (initialMessage != null) {
+          debugPrint('Notifikasi diketuk saat terminated: ${initialMessage.data}');
+          _handleNotificationClick(initialMessage);
+        }
+      }
+    } catch (e) {
+      debugPrint('Gagal menginisialisasi FCM di MainScreen: $e');
+    }
+  }
+
+  void _handleNotificationClick(RemoteMessage message) {
+    final type = message.data['type'];
+    if (type == 'stock_alert' || type == 'stock') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const StockAlertScreen()),
+      );
+    } else {
+      // Default: Arahkan ke tab Dashboard (index 0)
+      setSelectedIndex(0);
+    }
   }
 
   @override
