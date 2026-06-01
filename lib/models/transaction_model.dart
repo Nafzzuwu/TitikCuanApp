@@ -1,3 +1,12 @@
+int _parseInt(dynamic val) {
+  if (val == null) return 0;
+  if (val is num) return val.toInt();
+  if (val is String) {
+    return int.tryParse(val) ?? double.tryParse(val)?.toInt() ?? 0;
+  }
+  return 0;
+}
+
 /// Model item dalam satu transaksi.
 class TransactionItem {
   final int productId;
@@ -15,12 +24,15 @@ class TransactionItem {
   });
 
   factory TransactionItem.fromJson(Map<String, dynamic> json) {
+    final quantity = _parseInt(json['quantity'] ?? json['qty']);
+    final price = _parseInt(json['price']);
+    final subtotal = _parseInt(json['subtotal']);
     return TransactionItem(
-      productId: json['product_id'] ?? 0,
-      productName: json['product_name'] ?? '',
-      quantity: json['quantity'] ?? 0,
-      price: json['price'] ?? 0,
-      subtotal: json['subtotal'] ?? 0,
+      productId: _parseInt(json['product_id']),
+      productName: json['product_name'] ?? json['name'] ?? '',
+      quantity: quantity,
+      price: price,
+      subtotal: subtotal == 0 ? (quantity * price) : subtotal,
     );
   }
 
@@ -60,16 +72,28 @@ class Transaction {
 
   /// Parse dari JSON response API.
   factory Transaction.fromJson(Map<String, dynamic> json) {
+    final items = (json['items'] as List<dynamic>?)
+            ?.map((e) => TransactionItem.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList() ??
+        [];
+
+    int totalAmount = _parseInt(json['total_amount'] ??
+        json['total'] ??
+        json['total_price'] ??
+        json['amount'] ??
+        json['totalAmount']);
+
+    if (totalAmount == 0 && items.isNotEmpty) {
+      totalAmount = items.fold(0, (sum, item) => sum + item.subtotal);
+    }
+
     return Transaction(
-      id: json['id'] ?? 0,
+      id: _parseInt(json['id']),
       latitude: (json['latitude'] ?? 0).toDouble(),
       longitude: (json['longitude'] ?? 0).toDouble(),
       paymentMethod: json['payment_method'] ?? '',
-      totalAmount: json['total_amount'] ?? 0,
-      items: (json['items'] as List<dynamic>?)
-              ?.map((e) => TransactionItem.fromJson(e))
-              .toList() ??
-          [],
+      totalAmount: totalAmount,
+      items: items,
       createdAt: json['created_at'],
     );
   }
